@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Арканоид</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{% static 'style.css' %}">
 </head>
 <body>
     <div class="game-container">
@@ -56,12 +57,12 @@
                 <p>Не дайте шарику упасть!</p>
                 <p><strong>Бонусы:</strong></p>
                 <ul>
-                    <li>Зелёный — увеличить платформу</li>
-                    <li>Красный — уменьшить</li>
-                    <li>Жёлтый — мультиболл</li>
-                    <li>Синий — замедлить</li>
-                    <li>Фиолетовый — ускорить</li>
-                    <li>Оранжевый — +1 жизнь</li>
+                    <li>Extend (зелёный): Увеличивает платформу</li>
+                    <li>Shrink (красный): Уменьшает платформу</li>
+                    <li>Multiball (жёлтый): Добавляет шарик</li>
+                    <li>Slow (синий): Замедляет</li>
+                    <li>Fast (фиолетовый): Ускоряет</li>
+                    <li>Extra Life (оранжевый): +1 жизнь</li>
                 </ul>
             </div>
             <button id="tutorialBack">Назад</button>
@@ -98,7 +99,8 @@
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <script src="/static/game.js"></script>
+    {% load static %}
+    <script src="{% static 'game.js' %}"></script>
     <script>
         const API_URL = '/api/';
         let accessToken = localStorage.getItem('access_token');
@@ -122,7 +124,7 @@
                     accessToken = json.access;
                     showGameButtons();
                 } else {
-                    document.getElementById('authError').textContent = json.error || 'Ошибка регистрации';
+                    document.getElementById('authError').textContent = json.error || 'Ошибка';
                 }
             } catch (e) {
                 document.getElementById('authError').textContent = 'Ошибка сети';
@@ -146,7 +148,7 @@
                     accessToken = json.access;
                     showGameButtons();
                 } else {
-                    document.getElementById('authError').textContent = json.error || 'Ошибка входа';
+                    document.getElementById('authError').textContent = json.error || 'Ошибка';
                 }
             } catch (e) {
                 document.getElementById('authError').textContent = 'Ошибка сети';
@@ -156,8 +158,6 @@
         function showGameButtons() {
             document.getElementById('authSection').style.display = 'none';
             document.getElementById('gameButtons').style.display = 'flex';
-            // Чат показываем только в игре
-            document.getElementById('chatContainer').classList.add('hidden');
         }
 
         document.getElementById('logout').addEventListener('click', () => {
@@ -169,8 +169,12 @@
 
         // Кнопки меню
         document.getElementById('startGame').addEventListener('click', () => {
-            if (window.game) window.game.startNewGame();
-            else alert('Игра не загружена');
+            if (window.game) {
+                window.game.startNewGame();
+                document.getElementById('chatContainer').classList.remove('hidden');
+            } else {
+                alert('Игра не готова — обновите страницу');
+            }
         });
 
         document.getElementById('settings').addEventListener('click', () => {
@@ -181,20 +185,19 @@
         document.getElementById('tutorial').addEventListener('click', () => {
             document.getElementById('mainMenu').classList.add('hidden');
             document.getElementById('tutorialMenu').classList.remove('hidden');
-            document.getElementById('chatContainer').classList.add('hidden'); // Чат не показываем в обучении
         });
 
-        document.getElementById('stats').addEventListener('click', async () => {
+        document.getElementById('stats').addEventListener('click', () => {
             document.getElementById('mainMenu').classList.add('hidden');
             document.getElementById('statsMenu').classList.remove('hidden');
-            // Загрузка статистики и лидерборда
-            try {
-                const res = await fetch(API_URL + 'leaderboard/');
-                const json = await res.json();
-                document.getElementById('leaderboardContent').innerHTML = '<h3>Лидерборд</h3>' + json.map(e => `<p>${e.user ? e.user.username : 'Гость'}: ${e.score}</p>`).join('');
-            } catch (e) {
-                document.getElementById('leaderboardContent').innerHTML = '<p>Ошибка загрузки лидерборда</p>';
-            }
+            // Лидерборд
+            fetch(API_URL + 'leaderboard/')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('leaderboardContent').innerHTML = '<h3>Лидерборд</h3>' + 
+                        data.map(item => `<p>${item.user.username}: ${item.score} (сложность: ${item.difficulty})</p>`).join('');
+                })
+                .catch(() => document.getElementById('leaderboardContent').innerHTML = '<p>Ошибка загрузки</p>');
         });
 
         // Назад кнопки
@@ -202,28 +205,26 @@
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.hidden:not(#mainMenu)').forEach(el => el.classList.add('hidden'));
                 document.getElementById('mainMenu').classList.remove('hidden');
-                document.getElementById('chatContainer').classList.add('hidden');
             });
         });
 
-        // ESC для возврата в меню
+        // ESC для меню
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 document.querySelectorAll('.hidden:not(#mainMenu)').forEach(el => el.classList.add('hidden'));
                 document.getElementById('mainMenu').classList.remove('hidden');
-                document.getElementById('chatContainer').classList.add('hidden');
                 if (window.game) window.game.pauseGame();
             }
         });
 
         // Сохранение/загрузка
-        document.getElementById('saveGame')?.addEventListener('click', async () => {
+        document.getElementById('saveGame').addEventListener('click', async () => {
             if (!accessToken) return alert('Авторизуйтесь');
             const data = {
-                game_state: window.game?.getState() || {},
-                score: window.game?.score || 0,
-                level: window.game?.currentLevel || 1,
-                time_played: window.game?.elapsedTime / 1000 || 0,
+                game_state: window.game.getState(),
+                score: window.game.score,
+                level: window.game.currentLevel,
+                time_played: window.game.elapsedTime / 1000,
                 is_completed: false
             };
             const res = await fetch(API_URL + 'game-sessions/', {
@@ -234,7 +235,7 @@
             alert(res.ok ? 'Сохранено!' : 'Ошибка');
         });
 
-        document.getElementById('loadGame')?.addEventListener('click', async () => {
+        document.getElementById('loadGame').addEventListener('click', async () => {
             if (!accessToken) return alert('Авторизуйтесь');
             const res = await fetch(API_URL + 'load-session/', {
                 headers: {'Authorization': `Bearer ${accessToken}`}
@@ -246,40 +247,20 @@
             } else alert('Нет сохранений');
         });
 
-        // Чат (показываем только в игре)
+        // Чат
         let ws;
         function initChat() {
             ws = new WebSocket(`ws://${window.location.host}/ws/chat/?token=${accessToken}`);
-            ws.onopen = () => console.log('Chat connected');
             ws.onmessage = (e) => {
                 const data = JSON.parse(e.data);
-                document.getElementById('chatMessages').innerHTML += `<p><strong>${data.username}:</strong> ${data.message}</p>`;
-                document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+                document.getElementById('chatMessages').innerHTML += `<p>${data.username}: ${data.message}</p>`;
             };
-            ws.onclose = () => console.log('Chat closed');
         }
 
         document.getElementById('sendChat').addEventListener('click', () => {
-            const msg = document.getElementById('chatInput').value.trim();
-            if (msg && ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({message: msg}));
-                document.getElementById('chatInput').value = '';
-            }
-        });
-
-        // Показ чата только после старта игры
-        document.getElementById('startGame').addEventListener('click', () => {
-            document.getElementById('chatContainer').classList.remove('hidden');
-            if (accessToken) initChat();
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.game) {
-                console.log('Игра загружена');
-            } else {
-                console.error('game.js не загрузился');
-                alert('Ошибка: Игра не загружена. Проверьте консоль.');
-            }
+            const msg = document.getElementById('chatInput').value;
+            if (msg && ws) ws.send(JSON.stringify({message: msg}));
+            document.getElementById('chatInput').value = '';
         });
     </script>
 </body>

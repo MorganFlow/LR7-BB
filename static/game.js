@@ -27,8 +27,6 @@ class ArkanoidGame {
         };
         this.statsKey = 'arkanoidStats';
         this.settingsKey = 'arkanoidSettings';
-        this.giphyApiKey = 'VuExca9KDaS85j1CEAiL3S5XO3fONLku';
-        this.init();
     }
 
     init() {
@@ -38,27 +36,11 @@ class ArkanoidGame {
         this.initUI();
         this.loadSettings();
         this.sounds.background.play();
-        // Интеграция с backend: Загрузка профиля если аутентифицирован
-        if (localStorage.getItem('access_token')) {
-            this.loadProfile();
-        }
-    }
-
-    async loadProfile() {
-        try {
-            const res = await fetch(API_URL + 'profile/', {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-            });
-            const json = await res.json();
-            this.playerName = json.user.username;
-            document.getElementById('playerName').value = this.playerName;
-        } catch (e) {
-            console.error('Ошибка загрузки профиля:', e);
-        }
     }
 
     resizeCanvas() {
         const container = document.querySelector('.game-container');
+        if (!container) return;
         this.canvas.width = container.clientWidth;
         this.canvas.height = container.clientHeight;
         this.gameWidth = this.canvas.width;
@@ -71,25 +53,39 @@ class ArkanoidGame {
     }
 
     initUI() {
-        document.getElementById('startGame').addEventListener('click', () => this.startNewGame());
-        document.getElementById('settings').addEventListener('click', () => this.showSettings());
-        document.getElementById('tutorial').addEventListener('click', () => this.showTutorial());
-        document.getElementById('stats').addEventListener('click', () => this.showStats());
-        document.getElementById('saveSettings').addEventListener('click', () => this.saveSettings());
-        document.getElementById('backToMenu').addEventListener('click', () => this.hideSettings());
-        document.getElementById('tutorialBack').addEventListener('click', () => this.hideTutorial());
-        document.getElementById('statsBack').addEventListener('click', () => this.hideStats());
-        document.getElementById('clearStats').addEventListener('click', () => this.clearStats());
-        document.getElementById('pauseGame').addEventListener('click', () => this.pauseGame());
-        document.getElementById('resumeGame').addEventListener('click', () => this.resumeGame());
-        document.getElementById('exitToMenu').addEventListener('click', () => this.exitToMenu());
-        document.getElementById('nextLevel').addEventListener('click', () => this.nextLevel());
-        document.getElementById('restartGame').addEventListener('click', () => {
-            document.getElementById('gameOver').classList.add('hidden');
+        const addListener = (id, event, callback) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener(event, callback);
+            } else {
+                console.warn(`Элемент #${id} не найден`);
+            }
+        };
+
+        addListener('startGame', 'click', () => this.startNewGame());
+        addListener('settings', 'click', () => this.showSettings());
+        addListener('tutorial', 'click', () => this.showTutorial());
+        addListener('stats', 'click', () => this.showStats());
+        addListener('saveSettings', 'click', () => this.saveSettings());
+        addListener('backToMenu', 'click', () => this.hideSettings());
+        addListener('tutorialBack', 'click', () => this.hideTutorial());
+        addListener('statsBack', 'click', () => this.hideStats());
+        addListener('clearStats', 'click', () => this.clearStats());
+        addListener('pauseGame', 'click', () => this.pauseGame());
+        addListener('resumeGame', 'click', () => this.resumeGame());
+        addListener('exitToMenu', 'click', () => this.exitToMenu());
+        addListener('nextLevel', 'click', () => this.nextLevel());
+        addListener('restartGame', 'click', () => {
+            document.getElementById('gameOver')?.classList.add('hidden');
             this.startNewGame();
         });
-        document.getElementById('gameOverToMenu').addEventListener('click', () => this.exitToMenu());
-        document.getElementById('playerName').addEventListener('input', (e) => this.validateName(e.target.value));
+        addListener('gameOverToMenu', 'click', () => this.exitToMenu());
+
+        const playerNameInput = document.getElementById('playerName');
+        if (playerNameInput) {
+            playerNameInput.addEventListener('input', (e) => this.validateName(e.target.value));
+        }
+
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -97,131 +93,39 @@ class ArkanoidGame {
             e.preventDefault();
             this.handleTouchMove(e);
         });
-        // Добавлены для backend
-        document.getElementById('saveGame').addEventListener('click', () => this.saveGameToBackend());
-        document.getElementById('loadGame').addEventListener('click', () => this.loadGameFromBackend());
     }
 
     validateName(name) {
         const errorElement = document.getElementById('nameError');
+        const startBtn = document.getElementById('startGame');
+        if (!errorElement || !startBtn) return false;
+
         if (name.length < 3) {
             errorElement.textContent = 'Имя должно содержать минимум 3 символа';
-            document.getElementById('startGame').disabled = true;
+            startBtn.disabled = true;
             return false;
         } else if (!/^[a-zA-Zа-яА-Я0-9 ]+$/.test(name)) {
             errorElement.textContent = 'Имя содержит недопустимые символы';
-            document.getElementById('startGame').disabled = true;
+            startBtn.disabled = true;
             return false;
         } else {
             errorElement.textContent = '';
-            document.getElementById('startGame').disabled = false;
+            startBtn.disabled = false;
             this.playerName = name;
             return true;
         }
     }
 
-    loadSettings() {
-        try {
-            const savedSettings = localStorage.getItem(this.settingsKey);
-            if (savedSettings) {
-                const settings = JSON.parse(savedSettings);
-                this.difficulty = settings.difficulty || 'medium';
-                const volume = settings.volume !== undefined ? settings.volume : 50;
-                document.getElementById('difficulty').value = this.difficulty;
-                document.getElementById('soundVolume').value = volume;
-                Object.values(this.sounds).forEach(sound => sound.volume(volume / 100));
-            }
-        } catch (e) {
-            console.error('Ошибка загрузки настроек:', e);
-        }
-    }
-
-    saveSettings() {
-        this.difficulty = document.getElementById('difficulty').value;
-        const volume = document.getElementById('soundVolume').value / 100;
-        Object.values(this.sounds).forEach(sound => sound.volume(volume));
-        try {
-            localStorage.setItem(this.settingsKey, JSON.stringify({
-                difficulty: this.difficulty,
-                volume: document.getElementById('soundVolume').value
-            }));
-        } catch (e) {
-            console.error('Ошибка сохранения настроек:', e);
-        }
-        this.hideSettings();
-    }
-
-    saveStats() {
-        try {
-            const stats = this.loadStats() || [];
-            if (!stats.find(entry => 
-                entry.score === this.score && 
-                entry.playerName === this.playerName && 
-                entry.time === document.getElementById('gameTimer').textContent
-            )) {
-                stats.push({
-                    score: this.score,
-                    playerName: this.playerName,
-                    time: document.getElementById('gameTimer').textContent,
-                    timestamp: Date.now()
-                });
-                stats.sort((a, b) => b.score - a.score);
-                localStorage.setItem(this.statsKey, JSON.stringify(stats));
-            }
-        } catch (e) {
-            console.error('Ошибка сохранения статистики:', e);
-        }
-    }
-
-    loadStats() {
-        try {
-            const statsData = localStorage.getItem(this.statsKey);
-            return statsData ? JSON.parse(statsData) : [];
-        } catch (e) {
-            console.error('Ошибка загрузки статистики:', e);
-            return [];
-        }
-    }
-
-    clearStats() {
-        localStorage.removeItem(this.statsKey);
-        this.showStats();
-    }
-
-    showStats() {
-        const stats = this.loadStats();
-        const statsContent = document.getElementById('statsContent');
-        statsContent.innerHTML = '';
-        if (stats.length === 0) {
-            statsContent.innerHTML = '<p>Статистика пуста</p>';
-        } else {
-            stats.forEach(entry => {
-                const div = document.createElement('div');
-                div.className = 'stats-entry';
-                div.innerHTML = `
-                    <span>${entry.playerName}</span>
-                    <span>${entry.score}</span>
-                    <span>${entry.time}</span>
-                `;
-                statsContent.appendChild(div);
-            });
-        }
-        document.getElementById('mainMenu').classList.add('hidden');
-        document.getElementById('statsMenu').classList.remove('hidden');
-    }
-
-    hideStats() {
-        document.getElementById('statsMenu').classList.add('hidden');
-        document.getElementById('mainMenu').classList.remove('hidden');
-    }
-
     startNewGame() {
-        if (!this.validateName(document.getElementById('playerName').value)) return;
+        const playerNameInput = document.getElementById('playerName');
+        if (playerNameInput) {
+            if (!this.validateName(playerNameInput.value)) return;
+        }
         this.currentLevel = 1;
         this.score = 0;
         this.lives = 3;
         this.elapsedTime = 0;
-        document.getElementById('gameOverGif').classList.add('hidden');
+        document.getElementById('gameOverGif')?.classList.add('hidden');
         this.startLevel();
     }
 
@@ -846,6 +750,8 @@ const LEVELS = [
     { rows: 6, cols: 12, colors: ['#F44336', '#FF9800', '#CDDC39', '#00BCD4', '#673AB7', '#607D8B'], blockHealth: 3, blockPoints: 30, blockDensity: 1.0 }
 ];
 
-document.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('load', () => {
+    console.log('Страница полностью загружена, запускаю игру');
     window.game = new ArkanoidGame();
+    window.game.init();
 });
