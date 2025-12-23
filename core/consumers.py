@@ -13,7 +13,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.user = await database_sync_to_async(User.objects.get)(id=user_id)
             await self.channel_layer.group_add("global_chat", self.channel_name)
             await self.accept()
-        except:
+        except Exception as e:
+            print("WebSocket connect error:", e)
             await self.close()
 
     async def disconnect(self, close_code):

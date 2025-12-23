@@ -847,5 +847,5 @@ const LEVELS = [
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
-    window.game = new ArkanoidGame();  // Для доступа в script index.html
+    window.game = new ArkanoidGame();
 });

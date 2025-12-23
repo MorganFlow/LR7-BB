@@ -20,11 +20,12 @@ from rest_framework.routers import DefaultRouter
 from core.views import register, login, UserProfileView, GameSessionViewSet, LeaderboardViewSet, AchievementViewSet, load_latest_session
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import TemplateView
 
 router = DefaultRouter()
-router.register(r'game-sessions', GameSessionViewSet)
-router.register(r'leaderboard', LeaderboardViewSet)
-router.register(r'achievements', AchievementViewSet)
+router.register(r'game-sessions', GameSessionViewSet, basename='game-session')
+router.register(r'leaderboard', LeaderboardViewSet, basename='leaderboard')
+router.register(r'achievements', AchievementViewSet, basename='achievement')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -33,4 +34,7 @@ urlpatterns = [
     path('api/profile/', UserProfileView.as_view()),
     path('api/load-session/', load_latest_session),
     path('api/', include(router.urls)),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    path('', TemplateView.as_view(template_name='index.html'), name='home'),
+]
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
